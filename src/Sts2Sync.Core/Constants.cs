@@ -12,4 +12,9 @@ public static class Constants
         "saves/current_run.save",
         "saves/current_run_mp.save"
     ];
+
+    public const string GameHubDriveMappedPath = "/sdcard/STS2Saves";
+
+    public const string GameHubRootPathTemplate =
+        "/data/user/0/com.xiaoji.egggame/files/containers/{containerId}/.wine/drive_c/users/user/AppData/Roaming/SlayTheSpire2/steam/{steamId}";
 }
