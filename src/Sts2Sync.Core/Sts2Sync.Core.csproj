@@ -10,4 +10,8 @@
     <PackageReference Include="SteamKit2" Version="3.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Sts2Sync.Core.Tests" />
+  </ItemGroup>
+
 </Project>
