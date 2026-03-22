@@ -87,6 +87,46 @@ public class SteamCloudServiceTests
         Assert.Null(result);
     }
 
+    // --- TryCompress tests ---
+
+    [Fact]
+    public void TryCompress_SmallData_ReturnsNull()
+    {
+        // Very small data — ZIP overhead makes it larger
+        var data = "tiny"u8.ToArray();
+        var result = SteamCloudService.TryCompress(data);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryCompress_LargeRepetitiveData_ReturnsCompressed()
+    {
+        // Highly compressible: 10KB of repeating JSON
+        var data = System.Text.Encoding.UTF8.GetBytes(
+            string.Concat(Enumerable.Repeat("{\"key\":\"value\",\"num\":12345},", 400)));
+
+        var result = SteamCloudService.TryCompress(data);
+
+        Assert.NotNull(result);
+        Assert.True(result!.Length < data.Length);
+    }
+
+    [Fact]
+    public void TryCompress_RoundTrip_WithDecompress()
+    {
+        var original = System.Text.Encoding.UTF8.GetBytes(
+            string.Concat(Enumerable.Repeat("{\"floors_climbed\":100,\"playtime\":5000},", 200)));
+
+        var compressed = SteamCloudService.TryCompress(original);
+        Assert.NotNull(compressed);
+
+        var decompressed = SteamCloudService.TryDecompress(
+            compressed!, rawFileSize: (uint)original.Length, fileSize: (uint)compressed!.Length);
+
+        Assert.NotNull(decompressed);
+        Assert.Equal(original, decompressed);
+    }
+
     [Fact]
     public void SteamCloudException_ContainsMethodAndResult()
     {
