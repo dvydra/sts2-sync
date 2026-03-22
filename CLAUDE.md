@@ -28,4 +28,10 @@
 
 ## Meta Learnings
 
-(Accumulated during milestone implementation)
+- .NET 10 installed via homebrew; SteamKit2 3.4.0 has a net10.0 build
+- MAUI app needs Android SDK installed separately (`brew install --cask android-commandlinetools`)
+- MAUI 10 requires explicit `<PackageReference Include="Microsoft.Maui.Controls">` (not auto-included)
+- SteamKit2 must use `ProtocolTypes.WebSocket` on Android (TCP/UDP don't work)
+- Refresh token goes in `SteamUser.LogOnDetails.AccessToken` (confusing name)
+- `SteamConnectionManager` implements both `IDisposable` and `IAsyncDisposable` for test convenience
+- Target device: Android 13 (API 33)
