@@ -22,5 +22,7 @@ public record SyncReport(
     int Downloaded,
     int Uploaded,
     int Identical,
-    int Conflicts
+    int Conflicts,
+    int RunHistoryDownloaded,
+    int RunHistoryUploaded
 );

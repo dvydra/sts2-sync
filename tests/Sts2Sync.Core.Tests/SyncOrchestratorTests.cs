@@ -232,6 +232,28 @@ public class SyncOrchestratorTests
         Assert.True(report.Identical >= 1); // progress.save matched
         Assert.Equal(1, report.Downloaded); // current_run cloud wins
     }
+
+    [Fact]
+    public async Task Sync_RunHistory_Merged()
+    {
+        SetupAuth();
+
+        // Cloud-only .run file
+        _cloudService.AddCloudFile("profile1/history/1700000000.run", "cloud run"u8.ToArray());
+        // Local-only .run file
+        _localStore.AddFile("profile1/history/1700001000.run", "local run"u8.ToArray());
+
+        var orch = CreateOrchestrator();
+        var report = await orch.SyncAsync(SyncDirection.Both);
+
+        Assert.True(report.Success);
+        Assert.Equal(1, report.RunHistoryDownloaded);
+        Assert.Equal(1, report.RunHistoryUploaded);
+
+        // Verify cloud run was downloaded locally
+        var local = await _localStore.ReadFileAsync("profile1/history/1700000000.run");
+        Assert.Equal("cloud run"u8.ToArray(), local);
+    }
 }
 
 /// <summary>

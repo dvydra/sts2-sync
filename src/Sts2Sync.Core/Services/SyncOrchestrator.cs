@@ -10,6 +10,7 @@ public class SyncOrchestrator
     private readonly ILocalSaveStore _localStore;
     private readonly IBackupManager _backupManager;
     private readonly ICredentialStore _credentialStore;
+    private readonly ISyncLogger _logger;
 
     public SyncOrchestrator(
         ISteamAuthService authService,
@@ -17,7 +18,8 @@ public class SyncOrchestrator
         CloudFileCache cloudCache,
         ILocalSaveStore localStore,
         IBackupManager backupManager,
-        ICredentialStore credentialStore)
+        ICredentialStore credentialStore,
+        ISyncLogger? logger = null)
     {
         _authService = authService;
         _cloudService = cloudService;
@@ -25,12 +27,14 @@ public class SyncOrchestrator
         _localStore = localStore;
         _backupManager = backupManager;
         _credentialStore = credentialStore;
+        _logger = logger ?? new ConsoleSyncLogger();
     }
 
     public async Task<SyncReport> SyncAsync(SyncDirection direction, CancellationToken ct = default)
     {
         var actions = new List<FileSyncAction>();
         int downloaded = 0, uploaded = 0, identical = 0, conflicts = 0;
+        int runHistoryDownloaded = 0, runHistoryUploaded = 0;
 
         try
         {
@@ -43,22 +47,27 @@ public class SyncOrchestrator
 
                 try
                 {
+                    _logger.Info("Logging in with refresh token...");
                     await _authService.LoginWithRefreshTokenAsync(credentials, ct);
+                    _logger.Info("Authenticated successfully");
                 }
                 catch (Exception ex)
                 {
+                    _logger.Error("Authentication failed", ex);
                     return ErrorReport($"Authentication failed: {ex.Message}");
                 }
             }
 
             // 2. Refresh cloud cache
+            _logger.Info("Refreshing cloud file cache...");
             await _cloudCache.RefreshAsync(ct);
+            _logger.Info($"Cloud cache loaded: {_cloudCache.FileCount} files");
 
             // 3. Scan profiles
             var scanner = new ProfileScanner(_localStore, _cloudCache);
             var profiles = await scanner.ScanAsync(ct);
 
-            // 4. Process each file
+            // 4. Process each save file
             await using var uploadQueue = new UploadQueue(_cloudService, Constants.Sts2AppId);
 
             foreach (var profile in profiles)
@@ -79,7 +88,6 @@ public class SyncOrchestrator
 
                     var relativePath = $"{profile.ProfileName}/{file.SaveFileName}";
 
-                    // Read bytes from both sides
                     byte[]? localBytes = null;
                     if (file.Local is not null)
                         localBytes = await _localStore.ReadFileAsync(relativePath, ct);
@@ -104,53 +112,77 @@ public class SyncOrchestrator
 
                         case ResolutionOutcome.CloudWins:
                             if (direction == SyncDirection.Upload)
-                                break; // User only wants to upload
+                                break;
                             if (localBytes is not null)
                                 await _backupManager.BackupAsync(relativePath, localBytes, "local", ct);
                             await _localStore.WriteFileAsync(relativePath, cloudBytes!, ct);
+                            _logger.Info($"Downloaded: {relativePath} ({result.Reason})");
                             downloaded++;
                             break;
 
                         case ResolutionOutcome.LocalWins:
                             if (direction == SyncDirection.Download)
-                                break; // User only wants to download
+                                break;
                             if (cloudBytes is not null)
                                 await _backupManager.BackupAsync(relativePath, cloudBytes, "cloud", ct);
                             await uploadQueue.EnqueueAsync(relativePath, localBytes!, ct);
+                            _logger.Info($"Queued upload: {relativePath} ({result.Reason})");
                             uploaded++;
                             break;
 
                         case ResolutionOutcome.Conflict:
+                            _logger.Warn($"Conflict: {relativePath}");
                             conflicts++;
                             break;
                     }
                 }
             }
 
-            // 5. Flush uploads
+            // 5. Merge run history files
+            var merger = new RunHistoryMerger(
+                _localStore, _cloudService, _cloudCache, uploadQueue, _logger);
+
+            foreach (var profileName in Constants.ProfileNames)
+            {
+                var mergeResult = await merger.MergeAsync(profileName, direction, ct);
+                runHistoryDownloaded += mergeResult.Downloaded;
+                runHistoryUploaded += mergeResult.Uploaded;
+            }
+
+            // 6. Flush uploads
+            _logger.Info("Flushing upload queue...");
             await uploadQueue.FlushAsync(ct);
 
-            // 6. Prune backups
+            // 7. Prune backups
             foreach (var profile in Constants.ProfileNames)
                 await _backupManager.PruneAsync(profile, ct);
+
+            _logger.Info($"Sync complete: {downloaded} downloaded, {uploaded} uploaded, " +
+                         $"{identical} identical, {conflicts} conflicts, " +
+                         $"{runHistoryDownloaded} run history downloaded, {runHistoryUploaded} run history uploaded");
         }
         catch (Exception ex)
         {
-            return ErrorReport(ex.Message, actions, downloaded, uploaded, identical, conflicts);
+            _logger.Error("Sync failed", ex);
+            return ErrorReport(ex.Message, actions, downloaded, uploaded, identical, conflicts,
+                runHistoryDownloaded, runHistoryUploaded);
         }
 
         return new SyncReport(
             DateTimeOffset.UtcNow, true, null, actions,
-            downloaded, uploaded, identical, conflicts);
+            downloaded, uploaded, identical, conflicts,
+            runHistoryDownloaded, runHistoryUploaded);
     }
 
     private static SyncReport ErrorReport(string error,
         IReadOnlyList<FileSyncAction>? actions = null,
-        int downloaded = 0, int uploaded = 0, int identical = 0, int conflicts = 0)
+        int downloaded = 0, int uploaded = 0, int identical = 0, int conflicts = 0,
+        int runHistoryDownloaded = 0, int runHistoryUploaded = 0)
     {
         return new SyncReport(
             DateTimeOffset.UtcNow, false, error,
             actions ?? Array.Empty<FileSyncAction>(),
-            downloaded, uploaded, identical, conflicts);
+            downloaded, uploaded, identical, conflicts,
+            runHistoryDownloaded, runHistoryUploaded);
     }
 }
