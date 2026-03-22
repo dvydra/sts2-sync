@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Sts2Sync.App.Pages.LoginPage"
+             Title="Steam Login">
+    <ScrollView Padding="20">
+        <VerticalStackLayout Spacing="15" VerticalOptions="Center">
+
+            <Label Text="STS2 Sync" FontSize="28" HorizontalOptions="Center" FontAttributes="Bold" />
+            <Label Text="Sign in with your Steam account" HorizontalOptions="Center" TextColor="Gray" />
+
+            <Entry x:Name="UsernameEntry" Placeholder="Steam username" />
+            <Entry x:Name="PasswordEntry" Placeholder="Password" IsPassword="True" />
+
+            <VerticalStackLayout x:Name="TwoFactorSection" IsVisible="False" Spacing="10">
+                <Label x:Name="TwoFactorLabel" Text="Enter 2FA code" />
+                <Entry x:Name="TwoFactorEntry" Placeholder="2FA code" Keyboard="Numeric" />
+                <Button x:Name="SubmitCodeButton" Text="Submit Code" Clicked="OnSubmitCodeClicked" />
+            </VerticalStackLayout>
+
+            <Button x:Name="LoginButton" Text="Login" Clicked="OnLoginClicked" />
+
+            <Label Text="or" HorizontalOptions="Center" TextColor="Gray" />
+            <Button x:Name="QrLoginButton" Text="Login via QR Code (Steam App)"
+                    Clicked="OnQrLoginClicked" BackgroundColor="#171A21" TextColor="White" />
+
+            <!-- QR code display area -->
+            <VerticalStackLayout x:Name="QrSection" IsVisible="False" Spacing="10">
+                <Label Text="Scan this QR code with your Steam mobile app:" HorizontalOptions="Center" />
+                <Image x:Name="QrImage" HeightRequest="250" WidthRequest="250" HorizontalOptions="Center" />
+                <Label Text="Waiting for confirmation..." HorizontalOptions="Center" TextColor="Gray" />
+            </VerticalStackLayout>
+
+            <ActivityIndicator x:Name="LoadingIndicator" IsRunning="False" IsVisible="False" />
+            <Label x:Name="StatusLabel" TextColor="Gray" HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

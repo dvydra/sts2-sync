@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Sts2Sync.App.Pages.SyncPage"
+             Title="STS2 Sync">
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,0,10,0">
+            <Label Text="STS2 Sync" FontSize="20" FontAttributes="Bold" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="Settings" Clicked="OnSettingsClicked"
+                    BackgroundColor="Transparent" TextColor="{AppThemeBinding Light=Black, Dark=White}" />
+            <Button Grid.Column="2" Text="Logout" Clicked="OnLogoutClicked"
+                    BackgroundColor="Transparent" TextColor="Red" />
+        </Grid>
+    </Shell.TitleView>
+
+    <ScrollView Padding="20">
+        <VerticalStackLayout Spacing="15">
+
+            <!-- Sync buttons -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button x:Name="DownloadButton" Text="Download from Cloud"
+                        Clicked="OnDownloadClicked" BackgroundColor="#4CAF50" TextColor="White" />
+                <Button x:Name="UploadButton" Grid.Column="1" Text="Upload to Cloud"
+                        Clicked="OnUploadClicked" BackgroundColor="#2196F3" TextColor="White" />
+            </Grid>
+
+            <ActivityIndicator x:Name="SyncIndicator" IsRunning="False" IsVisible="False" />
+            <Label x:Name="StatusLabel" TextColor="Gray" HorizontalOptions="Center" />
+
+            <!-- Last sync report -->
+            <Frame x:Name="ReportFrame" IsVisible="False" Padding="10" BorderColor="LightGray">
+                <VerticalStackLayout Spacing="5">
+                    <Label x:Name="ReportTitle" FontAttributes="Bold" />
+                    <Label x:Name="ReportDetails" FontSize="13" />
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Profile status -->
+            <Label Text="Profiles" FontSize="18" FontAttributes="Bold" Margin="0,10,0,0" />
+            <VerticalStackLayout x:Name="ProfileList" Spacing="10" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

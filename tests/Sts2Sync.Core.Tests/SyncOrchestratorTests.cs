@@ -319,5 +319,8 @@ internal class FakeAuthService : ISteamAuthService
         return Task.CompletedTask;
     }
 
+    public Task<AuthResult> LoginViaQRAsync(Action<string> onChallengeUrl, CancellationToken ct = default)
+        => throw new NotImplementedException();
+
     public Task DisconnectAsync() { LoggedIn = false; return Task.CompletedTask; }
 }
