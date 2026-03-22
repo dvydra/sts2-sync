@@ -72,4 +72,24 @@ public class InMemoryLocalSaveStore : ILocalSaveStore
 
         return Task.FromResult<LocalFileInfo?>(info);
     }
+
+    public Task<List<string>> ListFilesAsync(string directoryPrefix, string extension, CancellationToken ct = default)
+    {
+        if (!directoryPrefix.EndsWith('/'))
+            directoryPrefix += '/';
+
+        var matches = _files.Keys
+            .Where(k => k.StartsWith(directoryPrefix, StringComparison.Ordinal)
+                        && k.EndsWith(extension, StringComparison.Ordinal))
+            .Order()
+            .ToList();
+
+        return Task.FromResult(matches);
+    }
+
+    public Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
+    {
+        _files.Remove(relativePath);
+        return Task.CompletedTask;
+    }
 }

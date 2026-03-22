@@ -13,6 +13,8 @@ public static class Constants
         "saves/current_run_mp.save"
     ];
 
+    public const int MaxBackupsPerProfile = 50;
+
     public const string GameHubDriveMappedPath = "/sdcard/STS2Saves";
 
     public const string GameHubRootPathTemplate =
