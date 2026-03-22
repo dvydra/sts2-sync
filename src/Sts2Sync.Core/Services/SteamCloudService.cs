@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Security.Cryptography;
 using SteamKit2;
 using SteamKit2.Internal;
 using Sts2Sync.Core.Models;
@@ -100,6 +101,110 @@ public class SteamCloudService : ISteamCloudService
         );
     }
 
+    public async Task UploadFileAsync(uint appId, string filename, byte[] data, CancellationToken ct = default)
+    {
+        var fileSha = SHA1.HashData(data);
+        var rawSize = (uint)data.Length;
+
+        // Try compression — use only if smaller
+        var compressed = TryCompress(data, filename);
+        var uploadBytes = compressed ?? data;
+        var uploadSize = (uint)uploadBytes.Length;
+
+        // Step 1: BeginAppUploadBatch
+        var batchRequest = new CCloud_BeginAppUploadBatch_Request
+        {
+            appid = appId,
+            machine_name = "android"
+        };
+        batchRequest.files_to_upload.Add(filename);
+
+        var batchResponse = await SendCloudRequestAsync<
+            CCloud_BeginAppUploadBatch_Request,
+            CCloud_BeginAppUploadBatch_Response>(
+            "BeginAppUploadBatch", batchRequest, ct);
+
+        var batchId = batchResponse.batch_id;
+
+        // Step 2: ClientBeginFileUpload
+        var beginRequest = new CCloud_ClientBeginFileUpload_Request
+        {
+            appid = appId,
+            filename = filename,
+            file_size = uploadSize,
+            raw_file_size = rawSize,
+            file_sha = fileSha,
+            time_stamp = (ulong)DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            upload_batch_id = batchId,
+            can_encrypt = false,
+            is_shared_file = false
+        };
+
+        var beginResponse = await SendCloudRequestAsync<
+            CCloud_ClientBeginFileUpload_Request,
+            CCloud_ClientBeginFileUpload_Response>(
+            "ClientBeginFileUpload", beginRequest, ct);
+
+        // Step 3: Upload blocks via HTTP
+        var uploadSucceeded = false;
+        try
+        {
+            foreach (var block in beginResponse.block_requests)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var url = $"https://{block.url_host}{block.url_path}";
+                var method = block.http_method == 2 ? HttpMethod.Post : HttpMethod.Put;
+
+                using var httpRequest = new HttpRequestMessage(method, url);
+
+                var bodyData = block.explicit_body_data is { Length: > 0 }
+                    ? block.explicit_body_data
+                    : uploadBytes[(int)block.block_offset..((int)block.block_offset + (int)block.block_length)];
+
+                httpRequest.Content = new ByteArrayContent(bodyData);
+                httpRequest.Content.Headers.ContentType =
+                    new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                httpRequest.Content.Headers.ContentLength = bodyData.Length;
+
+                foreach (var header in block.request_headers)
+                    httpRequest.Headers.TryAddWithoutValidation(header.name, header.value);
+
+                var httpResponse = await _httpClient.SendAsync(httpRequest, ct);
+                httpResponse.EnsureSuccessStatusCode();
+            }
+
+            uploadSucceeded = true;
+        }
+        finally
+        {
+            // Step 4: ClientCommitFileUpload (always called, even on failure)
+            await SendCloudRequestAsync<
+                CCloud_ClientCommitFileUpload_Request,
+                CCloud_ClientCommitFileUpload_Response>(
+                "ClientCommitFileUpload",
+                new CCloud_ClientCommitFileUpload_Request
+                {
+                    transfer_succeeded = uploadSucceeded,
+                    appid = appId,
+                    file_sha = fileSha,
+                    filename = filename
+                }, ct);
+        }
+
+        // Step 5: CompleteAppUploadBatchBlocking
+        await SendCloudRequestAsync<
+            CCloud_CompleteAppUploadBatch_Request,
+            CCloud_CompleteAppUploadBatch_Response>(
+            "CompleteAppUploadBatchBlocking",
+            new CCloud_CompleteAppUploadBatch_Request
+            {
+                appid = appId,
+                batch_id = batchId,
+                batch_eresult = (uint)EResult.OK
+            }, ct);
+    }
+
     private async Task<TResponse> SendCloudRequestAsync<TRequest, TResponse>(
         string method, TRequest request, CancellationToken ct)
         where TRequest : class, ProtoBuf.IExtensible, new()
@@ -142,6 +247,22 @@ public class SteamCloudService : ISteamCloudService
         using var ms = new MemoryStream();
         entry.CopyTo(ms);
         return ms.ToArray();
+    }
+    /// <summary>
+    /// Attempt ZIP compression. Returns compressed bytes if smaller than original, null otherwise.
+    /// </summary>
+    public static byte[]? TryCompress(byte[] data, string entryName = "data")
+    {
+        using var ms = new MemoryStream();
+        using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+            using var entryStream = entry.Open();
+            entryStream.Write(data);
+        }
+
+        var compressed = ms.ToArray();
+        return compressed.Length < data.Length ? compressed : null;
     }
 }
 
