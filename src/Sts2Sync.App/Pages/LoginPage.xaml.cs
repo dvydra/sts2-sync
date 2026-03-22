@@ -15,32 +15,13 @@ public partial class LoginPage : ContentPage
         InitializeComponent();
         _authService = authService;
         _credentialStore = credentialStore;
+        Log("LoginPage created");
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
-
-        // Try auto-login with stored credentials
-        var credentials = await _credentialStore.LoadAsync();
-        if (credentials is not null)
-        {
-            SetLoading(true, "Logging in with saved credentials...");
-            try
-            {
-                await _authService.LoginWithRefreshTokenAsync(credentials);
-                await Shell.Current.GoToAsync("//sync");
-                return;
-            }
-            catch
-            {
-                SetStatus("Saved credentials expired. Please log in again.");
-            }
-            finally
-            {
-                SetLoading(false);
-            }
-        }
+        Log("OnAppearing — ready for login");
     }
 
     private async void OnLoginClicked(object? sender, EventArgs e)
@@ -54,21 +35,24 @@ public partial class LoginPage : ContentPage
             return;
         }
 
+        Log($"OnLoginClicked: username='{username}'");
         SetLoading(true, "Connecting to Steam...");
         LoginButton.IsEnabled = false;
 
         try
         {
             var result = await _authService.LoginAsync(username, password, OnCodeRequested);
+            Log($"Login succeeded: account={result.AccountName}");
 
-            // Save credentials for next time
             await _credentialStore.SaveAsync(new SteamCredentials(
                 result.AccountName, result.RefreshToken, result.GuardData));
+            Log("Credentials saved");
 
             await Shell.Current.GoToAsync("//sync");
         }
         catch (Exception ex)
         {
+            Log($"Login failed: {ex}");
             SetStatus($"Login failed: {ex.Message}");
         }
         finally
@@ -81,6 +65,7 @@ public partial class LoginPage : ContentPage
 
     private Task<string> OnCodeRequested(AuthCodeRequest request)
     {
+        Log($"OnCodeRequested: type={request.Type}, email={request.EmailHint}, retry={request.PreviousCodeWasIncorrect}");
         _codePromise = new TaskCompletionSource<string>();
 
         MainThread.BeginInvokeOnMainThread(() =>
@@ -106,6 +91,7 @@ public partial class LoginPage : ContentPage
     private void OnSubmitCodeClicked(object? sender, EventArgs e)
     {
         var code = TwoFactorEntry.Text?.Trim();
+        Log($"OnSubmitCodeClicked: code='{code}'");
         if (!string.IsNullOrEmpty(code) && _codePromise is not null)
         {
             SetLoading(true, "Verifying code...");
@@ -115,6 +101,7 @@ public partial class LoginPage : ContentPage
 
     private async void OnQrLoginClicked(object? sender, EventArgs e)
     {
+        Log("OnQrLoginClicked");
         SetLoading(true, "Generating QR code...");
         QrLoginButton.IsEnabled = false;
         LoginButton.IsEnabled = false;
@@ -123,19 +110,31 @@ public partial class LoginPage : ContentPage
         {
             var result = await _authService.LoginViaQRAsync(challengeUrl =>
             {
+                Log($"QR challenge URL received: {challengeUrl}");
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    using var qrGenerator = new QRCodeGenerator();
-                    var qrData = qrGenerator.CreateQrCode(challengeUrl, QRCodeGenerator.ECCLevel.M);
-                    using var qrCode = new PngByteQRCode(qrData);
-                    var pngBytes = qrCode.GetGraphic(10);
+                    try
+                    {
+                        Log("Generating QR image...");
+                        using var qrGenerator = new QRCodeGenerator();
+                        var qrData = qrGenerator.CreateQrCode(challengeUrl, QRCodeGenerator.ECCLevel.M);
+                        using var qrCode = new PngByteQRCode(qrData);
+                        var pngBytes = qrCode.GetGraphic(10);
+                        Log($"QR image generated: {pngBytes.Length} bytes");
 
-                    QrImage.Source = ImageSource.FromStream(() => new MemoryStream(pngBytes));
-                    QrSection.IsVisible = true;
-                    SetLoading(false, "Scan with Steam mobile app...");
+                        QrImage.Source = ImageSource.FromStream(() => new MemoryStream(pngBytes));
+                        QrSection.IsVisible = true;
+                        SetLoading(false, "Scan with Steam mobile app...");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log($"QR generation error: {ex}");
+                        SetStatus($"QR error: {ex.Message}");
+                    }
                 });
             });
 
+            Log($"QR login succeeded: account={result.AccountName}");
             await _credentialStore.SaveAsync(new SteamCredentials(
                 result.AccountName, result.RefreshToken, result.GuardData));
 
@@ -143,6 +142,7 @@ public partial class LoginPage : ContentPage
         }
         catch (Exception ex)
         {
+            Log($"QR login failed: {ex}");
             SetStatus($"QR login failed: {ex.Message}");
         }
         finally
@@ -165,5 +165,10 @@ public partial class LoginPage : ContentPage
     private void SetStatus(string text)
     {
         StatusLabel.Text = text;
+    }
+
+    private static void Log(string message)
+    {
+        Console.WriteLine($"[LoginPage] {message}");
     }
 }

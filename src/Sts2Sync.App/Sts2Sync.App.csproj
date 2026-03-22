@@ -10,8 +10,10 @@
     <ApplicationTitle>STS2 Sync</ApplicationTitle>
     <ApplicationId>com.sts2sync.app</ApplicationId>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationVersion>2</ApplicationVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
+    <!-- Use managed networking to allow ClientWebSocket for SteamKit2 -->
+    <UseNativeHttpHandler>false</UseNativeHttpHandler>
   </PropertyGroup>
 
   <ItemGroup>

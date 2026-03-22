@@ -5,6 +5,7 @@ namespace Sts2Sync.Core.Services;
 public class SyncOrchestrator
 {
     private readonly ISteamAuthService _authService;
+    private readonly ISteamConnectionManager _connectionManager;
     private readonly ISteamCloudService _cloudService;
     private readonly CloudFileCache _cloudCache;
     private readonly ILocalSaveStore _localStore;
@@ -14,6 +15,7 @@ public class SyncOrchestrator
 
     public SyncOrchestrator(
         ISteamAuthService authService,
+        ISteamConnectionManager connectionManager,
         ISteamCloudService cloudService,
         CloudFileCache cloudCache,
         ILocalSaveStore localStore,
@@ -22,6 +24,7 @@ public class SyncOrchestrator
         ISyncLogger? logger = null)
     {
         _authService = authService;
+        _connectionManager = connectionManager;
         _cloudService = cloudService;
         _cloudCache = cloudCache;
         _localStore = localStore;
@@ -38,6 +41,10 @@ public class SyncOrchestrator
 
         try
         {
+            // 0. Suspend idle timer during sync
+            _connectionManager.SuspendIdle();
+            _logger.Info("Idle timer suspended for sync");
+
             // 1. Ensure authenticated
             if (!_authService.IsLoggedIn)
             {
@@ -166,6 +173,11 @@ public class SyncOrchestrator
             _logger.Error("Sync failed", ex);
             return ErrorReport(ex.Message, actions, downloaded, uploaded, identical, conflicts,
                 runHistoryDownloaded, runHistoryUploaded);
+        }
+        finally
+        {
+            _connectionManager.ResumeIdle();
+            _logger.Info("Idle timer resumed");
         }
 
         return new SyncReport(

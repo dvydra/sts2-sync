@@ -29,6 +29,30 @@ public partial class SyncPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        if (!_authService.IsLoggedIn)
+        {
+            var credentials = await _credentialStore.LoadAsync();
+            if (credentials is null)
+            {
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+
+            SetSyncing(true, $"Logging in as {credentials.AccountName}...");
+            try
+            {
+                await _authService.LoginWithRefreshTokenAsync(credentials);
+                SetSyncing(false, $"Logged in as {credentials.AccountName}");
+            }
+            catch
+            {
+                await _credentialStore.ClearAsync();
+                await Shell.Current.GoToAsync("//login");
+                return;
+            }
+        }
+
         await RefreshProfileStatus();
     }
 

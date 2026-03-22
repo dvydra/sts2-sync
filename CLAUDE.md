@@ -35,3 +35,21 @@
 - Refresh token goes in `SteamUser.LogOnDetails.AccessToken` (confusing name)
 - `SteamConnectionManager` implements both `IDisposable` and `IAsyncDisposable` for test convenience
 - Target device: Android 13 (API 33)
+- **CRITICAL**: Must call `_unifiedMessages.CreateService<Cloud>()` during init — without it, CCloud RPCs silently time out (responses never routed to AsyncJob)
+- SteamKit2 `AsyncJob` default timeout is 10 seconds; set `job.Timeout` for longer operations
+- `Console.WriteLine` from .NET goes to Android logcat under `DOTNET` tag
+
+## Android Deployment
+
+Reliable deploy command (always use this):
+```bash
+ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
+  dotnet build src/Sts2Sync.App/ -t:Install -f net10.0-android \
+  -p:EmbedAssembliesIntoApk=true
+```
+
+Key gotchas:
+- **Always use `-p:EmbedAssembliesIntoApk=true`** — fast deployment mode leaves assemblies in a device override dir that breaks after uninstall
+- **Never `adb uninstall` then `adb install`** — use `-t:Install` or `-r` flag instead
+- **Incremental builds may not update Core DLL** — touch `MauiProgram.cs` or use `--no-incremental` to force
+- **When in doubt**: `rm -rf src/*/bin src/*/obj` and rebuild

@@ -20,6 +20,7 @@ public class SteamCloudService : ISteamCloudService
 
     public async Task<List<CloudFileInfo>> EnumerateFilesAsync(uint appId, CancellationToken ct = default)
     {
+        Log($"EnumerateFilesAsync: starting for appId={appId}");
         var allFiles = new List<CloudFileInfo>();
         uint startIndex = 0;
 
@@ -27,18 +28,19 @@ public class SteamCloudService : ISteamCloudService
         {
             ct.ThrowIfCancellationRequested();
 
+            Log($"EnumerateFilesAsync: requesting page at index {startIndex}...");
             var request = new CCloud_EnumerateUserFiles_Request
             {
                 appid = appId,
                 start_index = startIndex,
-                count = PageSize,
-                extended_details = true
+                count = PageSize
             };
 
             var response = await SendCloudRequestAsync<
                 CCloud_EnumerateUserFiles_Request,
                 CCloud_EnumerateUserFiles_Response>(
                 "EnumerateUserFiles", request, ct);
+            Log($"EnumerateFilesAsync: got {response.files.Count} files");
 
             foreach (var file in response.files)
             {
@@ -205,6 +207,8 @@ public class SteamCloudService : ISteamCloudService
             }, ct);
     }
 
+    private static readonly TimeSpan RpcTimeout = TimeSpan.FromSeconds(60);
+
     private async Task<TResponse> SendCloudRequestAsync<TRequest, TResponse>(
         string method, TRequest request, CancellationToken ct)
         where TRequest : class, ProtoBuf.IExtensible, new()
@@ -212,15 +216,29 @@ public class SteamCloudService : ISteamCloudService
     {
         ct.ThrowIfCancellationRequested();
 
+        Log($"RPC: Cloud.{method} — connected={_connection.IsConnected}, state={_connection.State}");
+        Log($"RPC: Cloud.{method} — UnifiedMessages type={_connection.UnifiedMessages?.GetType().Name ?? "NULL"}");
+
         var job = _connection.UnifiedMessages
             .SendMessage<TRequest, TResponse>($"Cloud.{method}#1", request);
+        job.Timeout = RpcTimeout;
+        Log($"RPC: Cloud.{method} — job created, id={job.JobID}, timeout={job.Timeout.TotalSeconds}s");
 
-        var response = await job.ToTask();
+        try
+        {
+            var response = await job.ToTask();
+            Log($"RPC: Cloud.{method} — result={response.Result}");
 
-        if (response.Result != EResult.OK)
-            throw new SteamCloudException(method, response.Result);
+            if (response.Result != EResult.OK)
+                throw new SteamCloudException(method, response.Result);
 
-        return response.Body;
+            return response.Body;
+        }
+        catch (Exception ex)
+        {
+            Log($"RPC: Cloud.{method} — FAILED: {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
     }
 
     /// <summary>
@@ -263,6 +281,12 @@ public class SteamCloudService : ISteamCloudService
 
         var compressed = ms.ToArray();
         return compressed.Length < data.Length ? compressed : null;
+    }
+
+    private static void Log(string message)
+    {
+        Console.WriteLine($"[SteamCloud] {message}");
+        Console.Out.Flush();
     }
 }
 

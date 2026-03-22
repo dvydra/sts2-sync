@@ -22,8 +22,11 @@ public class SteamAuthService : ISteamAuthService
         Func<AuthCodeRequest, Task<string>> codeProvider,
         CancellationToken ct = default)
     {
+        Log($"LoginAsync: connecting for user '{username}'...");
         await _connection.ConnectAsync(ct);
+        Log($"LoginAsync: connected, state={_connection.State}");
 
+        Log("LoginAsync: calling BeginAuthSessionViaCredentialsAsync...");
         var authSession = await _connection.Client.Authentication.BeginAuthSessionViaCredentialsAsync(
             new AuthSessionDetails
             {
@@ -34,12 +37,15 @@ public class SteamAuthService : ISteamAuthService
                 Authenticator = new CallbackAuthenticator(codeProvider),
                 GuardData = null
             });
+        Log("LoginAsync: auth session started, polling for result...");
 
         var pollResult = await authSession.PollingWaitForResultAsync(ct);
+        Log($"LoginAsync: poll complete, account={pollResult.AccountName}");
 
-        // Now log on with the refresh token
+        Log("LoginAsync: logging on with refresh token...");
         await _connection.LogOnWithRefreshTokenAsync(pollResult.AccountName, pollResult.RefreshToken, ct);
         _isLoggedIn = true;
+        Log("LoginAsync: logged in successfully");
 
         return new AuthResult(
             AccountName: pollResult.AccountName,
@@ -52,23 +58,29 @@ public class SteamAuthService : ISteamAuthService
         Action<string> onChallengeUrl,
         CancellationToken ct = default)
     {
+        Log("LoginViaQRAsync: connecting...");
         await _connection.ConnectAsync(ct);
+        Log($"LoginViaQRAsync: connected, state={_connection.State}");
 
+        Log("LoginViaQRAsync: calling BeginAuthSessionViaQRAsync...");
         var authSession = await _connection.Client.Authentication.BeginAuthSessionViaQRAsync(
             new AuthSessionDetails
             {
                 IsPersistentSession = true,
                 DeviceFriendlyName = "STS2 Sync Android"
             });
+        Log($"LoginViaQRAsync: challenge URL = {authSession.ChallengeURL}");
 
-        // Provide the challenge URL for QR code rendering
         onChallengeUrl(authSession.ChallengeURL);
+        Log("LoginViaQRAsync: QR displayed, polling for scan...");
 
-        // Poll until user scans and confirms
         var pollResult = await authSession.PollingWaitForResultAsync(ct);
+        Log($"LoginViaQRAsync: poll complete, account={pollResult.AccountName}");
 
+        Log("LoginViaQRAsync: logging on with refresh token...");
         await _connection.LogOnWithRefreshTokenAsync(pollResult.AccountName, pollResult.RefreshToken, ct);
         _isLoggedIn = true;
+        Log("LoginViaQRAsync: logged in successfully");
 
         return new AuthResult(
             AccountName: pollResult.AccountName,
@@ -81,25 +93,33 @@ public class SteamAuthService : ISteamAuthService
         SteamCredentials credentials,
         CancellationToken ct = default)
     {
+        Log($"LoginWithRefreshTokenAsync: connecting for '{credentials.AccountName}'...");
         await _connection.ConnectAsync(ct);
+        Log($"LoginWithRefreshTokenAsync: connected, logging on...");
         await _connection.LogOnWithRefreshTokenAsync(credentials.AccountName, credentials.RefreshToken, ct);
         _isLoggedIn = true;
+        Log("LoginWithRefreshTokenAsync: logged in successfully");
     }
 
     public async Task DisconnectAsync()
     {
+        Log("DisconnectAsync: disconnecting...");
         _isLoggedIn = false;
         await _connection.DisconnectAsync();
+        Log("DisconnectAsync: done");
     }
 
-    /// <summary>
-    /// IAuthenticator implementation that delegates to a user-provided callback.
-    /// </summary>
+    private static void Log(string message)
+    {
+        Console.WriteLine($"[SteamAuth] {message}");
+    }
+
     private sealed class CallbackAuthenticator(
         Func<AuthCodeRequest, Task<string>> codeProvider) : IAuthenticator
     {
         public async Task<string> GetDeviceCodeAsync(bool previousCodeWasIncorrect)
         {
+            Console.WriteLine($"[SteamAuth] 2FA: device code requested (retry={previousCodeWasIncorrect})");
             return await codeProvider(new AuthCodeRequest(
                 AuthCodeType.DeviceCode,
                 PreviousCodeWasIncorrect: previousCodeWasIncorrect));
@@ -107,6 +127,7 @@ public class SteamAuthService : ISteamAuthService
 
         public async Task<string> GetEmailCodeAsync(string email, bool previousCodeWasIncorrect)
         {
+            Console.WriteLine($"[SteamAuth] 2FA: email code requested for {email} (retry={previousCodeWasIncorrect})");
             return await codeProvider(new AuthCodeRequest(
                 AuthCodeType.EmailCode,
                 EmailHint: email,
@@ -115,9 +136,7 @@ public class SteamAuthService : ISteamAuthService
 
         public Task<bool> AcceptDeviceConfirmationAsync()
         {
-            // Return true to keep polling for mobile app confirmation.
-            // The user can cancel via CancellationToken if they want to
-            // fall back to entering a code manually.
+            Console.WriteLine("[SteamAuth] 2FA: device confirmation polling...");
             return Task.FromResult(true);
         }
     }

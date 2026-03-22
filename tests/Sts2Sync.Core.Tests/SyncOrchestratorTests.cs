@@ -12,12 +12,14 @@ public class SyncOrchestratorTests
     private readonly TestableCloudService _cloudService = new();
     private readonly FakeTimeProvider _clock = new(new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero));
 
+    private readonly FakeConnectionManager _connectionManager = new();
+
     private SyncOrchestrator CreateOrchestrator()
     {
         var cloudCache = new CloudFileCache(_cloudService, Constants.Sts2AppId);
         var backupManager = new BackupManager(_localStore, _clock);
         return new SyncOrchestrator(
-            _authService, _cloudService, cloudCache,
+            _authService, _connectionManager, _cloudService, cloudCache,
             _localStore, backupManager, _credentialStore);
     }
 
@@ -124,7 +126,7 @@ public class SyncOrchestratorTests
 
         var backupManager = new BackupManager(_localStore, _clock);
         var orch = new SyncOrchestrator(
-            _authService, _cloudService,
+            _authService, _connectionManager, _cloudService,
             new CloudFileCache(_cloudService, Constants.Sts2AppId),
             _localStore, backupManager, _credentialStore);
 
@@ -323,4 +325,19 @@ internal class FakeAuthService : ISteamAuthService
         => throw new NotImplementedException();
 
     public Task DisconnectAsync() { LoggedIn = false; return Task.CompletedTask; }
+}
+
+internal class FakeConnectionManager : ISteamConnectionManager
+{
+    public ConnectionState State => ConnectionState.Connected;
+    public bool IsConnected => true;
+    public SteamKit2.SteamClient Client => throw new NotImplementedException();
+    public SteamKit2.SteamUser User => throw new NotImplementedException();
+    public SteamKit2.SteamUnifiedMessages UnifiedMessages => throw new NotImplementedException();
+    public Task ConnectAsync(CancellationToken ct = default) => Task.CompletedTask;
+    public Task LogOnWithRefreshTokenAsync(string username, string refreshToken, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DisconnectAsync() => Task.CompletedTask;
+    public void SuspendIdle() { }
+    public void ResumeIdle() { }
+    public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 }

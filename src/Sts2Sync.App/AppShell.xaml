@@ -5,7 +5,7 @@
        x:Class="Sts2Sync.App.AppShell"
        Shell.FlyoutBehavior="Disabled">
 
-    <ShellContent ContentTemplate="{DataTemplate pages:LoginPage}" Route="login" />
     <ShellContent ContentTemplate="{DataTemplate pages:SyncPage}" Route="sync" />
+    <ShellContent ContentTemplate="{DataTemplate pages:LoginPage}" Route="login" />
 
 </Shell>

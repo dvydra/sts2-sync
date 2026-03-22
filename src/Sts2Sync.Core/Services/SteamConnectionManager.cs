@@ -40,14 +40,22 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
     {
         _idleTimeout = idleTimeout ?? TimeSpan.FromSeconds(30);
 
+        // Enable SteamKit2 debug logging
+        DebugLog.AddListener(new SteamDebugListener());
+        DebugLog.Enabled = true;
+
         var config = SteamConfiguration.Create(b =>
-            b.WithProtocolTypes(ProtocolTypes.WebSocket));
+            b.WithProtocolTypes(ProtocolTypes.WebSocket)
+             .WithConnectionTimeout(TimeSpan.FromSeconds(30)));
 
         _client = new SteamClient(config);
         _callbackManager = new CallbackManager(_client);
+        Log($"SteamClient created, protocol=WebSocket");
 
         _user = _client.GetHandler<SteamUser>()!;
         _unifiedMessages = _client.GetHandler<SteamUnifiedMessages>()!;
+        _unifiedMessages.CreateService<SteamKit2.Internal.Cloud>();
+        Log("Created Cloud unified message service");
 
         _callbackManager.Subscribe<SteamClient.ConnectedCallback>(OnConnected);
         _callbackManager.Subscribe<SteamClient.DisconnectedCallback>(OnDisconnected);
@@ -58,13 +66,17 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
     public async Task ConnectAsync(CancellationToken ct = default)
     {
         if (_state == ConnectionState.Connected)
+        {
+            Log("ConnectAsync: already connected");
             return;
+        }
 
         _state = ConnectionState.Connecting;
         StartCallbackPump();
 
         for (var attempt = 0; attempt <= BackoffDelays.Length; attempt++)
         {
+            Log($"ConnectAsync: attempt {attempt + 1}/{BackoffDelays.Length + 1}...");
             TaskCompletionSource<bool> tcs;
             lock (_lock)
             {
@@ -81,24 +93,28 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
                 var connected = await tcs.Task;
                 if (connected)
                 {
+                    Log("ConnectAsync: connected successfully");
                     _state = ConnectionState.Connected;
                     ResetIdleTimer();
                     return;
                 }
+                Log("ConnectAsync: connection attempt failed (disconnected)");
             }
             catch (TaskCanceledException)
             {
+                Log("ConnectAsync: cancelled");
                 _state = ConnectionState.Idle;
                 throw;
             }
 
-            // Connection failed — backoff and retry
             if (attempt < BackoffDelays.Length)
             {
+                Log($"ConnectAsync: backing off {BackoffDelays[attempt].TotalSeconds}s...");
                 await Task.Delay(BackoffDelays[attempt], ct);
             }
         }
 
+        Log("ConnectAsync: all attempts exhausted");
         _state = ConnectionState.Idle;
         throw new InvalidOperationException("Failed to connect to Steam after maximum retries");
     }
@@ -224,6 +240,7 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
 
     private void OnConnected(SteamClient.ConnectedCallback callback)
     {
+        Log("OnConnected callback fired");
         TaskCompletionSource<bool>? tcs;
         lock (_lock) { tcs = _connectTcs; }
         tcs?.TrySetResult(true);
@@ -231,6 +248,7 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
 
     private void OnDisconnected(SteamClient.DisconnectedCallback callback)
     {
+        Log($"OnDisconnected callback fired (userInitiated={callback.UserInitiated}, state={_state})");
         TaskCompletionSource<bool>? connectTcs;
         TaskCompletionSource<bool>? logonTcs;
         TaskCompletionSource<bool>? disconnectTcs;
@@ -257,6 +275,7 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
 
     private void OnLoggedOn(SteamUser.LoggedOnCallback callback)
     {
+        Log($"OnLoggedOn callback: result={callback.Result}");
         TaskCompletionSource<bool>? tcs;
         lock (_lock) { tcs = _logonTcs; }
 
@@ -272,7 +291,12 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
 
     private void OnLoggedOff(SteamUser.LoggedOffCallback callback)
     {
-        // Expected during disconnect — no action needed
+        Log($"OnLoggedOff callback: result={callback.Result}");
+    }
+
+    private static void Log(string message)
+    {
+        Console.WriteLine($"[SteamConn] {message}");
     }
 
     public void Dispose()
@@ -296,4 +320,12 @@ public class SteamConnectionManager : ISteamConnectionManager, IDisposable
 public class SteamLogonException(EResult result) : Exception($"Steam logon failed: {result}")
 {
     public EResult Result { get; } = result;
+}
+
+internal class SteamDebugListener : IDebugListener
+{
+    public void WriteLine(string category, string msg)
+    {
+        Console.WriteLine($"[SK2/{category}] {msg}");
+    }
 }
