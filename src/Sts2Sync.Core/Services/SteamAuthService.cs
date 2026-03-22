@@ -48,6 +48,35 @@ public class SteamAuthService : ISteamAuthService
         );
     }
 
+    public async Task<AuthResult> LoginViaQRAsync(
+        Action<string> onChallengeUrl,
+        CancellationToken ct = default)
+    {
+        await _connection.ConnectAsync(ct);
+
+        var authSession = await _connection.Client.Authentication.BeginAuthSessionViaQRAsync(
+            new AuthSessionDetails
+            {
+                IsPersistentSession = true,
+                DeviceFriendlyName = "STS2 Sync Android"
+            });
+
+        // Provide the challenge URL for QR code rendering
+        onChallengeUrl(authSession.ChallengeURL);
+
+        // Poll until user scans and confirms
+        var pollResult = await authSession.PollingWaitForResultAsync(ct);
+
+        await _connection.LogOnWithRefreshTokenAsync(pollResult.AccountName, pollResult.RefreshToken, ct);
+        _isLoggedIn = true;
+
+        return new AuthResult(
+            AccountName: pollResult.AccountName,
+            RefreshToken: pollResult.RefreshToken,
+            GuardData: pollResult.NewGuardData
+        );
+    }
+
     public async Task LoginWithRefreshTokenAsync(
         SteamCredentials credentials,
         CancellationToken ct = default)

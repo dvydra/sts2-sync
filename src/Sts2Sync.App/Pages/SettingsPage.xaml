@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Sts2Sync.App.Pages.SettingsPage"
+             Title="Settings">
+    <ScrollView Padding="20">
+        <VerticalStackLayout Spacing="15">
+
+            <Label Text="Save Path" FontSize="18" FontAttributes="Bold" />
+
+            <Picker x:Name="PresetPicker" Title="Path Preset" SelectedIndexChanged="OnPresetChanged">
+                <Picker.ItemsSource>
+                    <x:Array Type="{x:Type x:String}">
+                        <x:String>GameHub Drive-Mapped (/sdcard/STS2Saves)</x:String>
+                        <x:String>GameHub Root (Wine container)</x:String>
+                        <x:String>Custom Path</x:String>
+                    </x:Array>
+                </Picker.ItemsSource>
+            </Picker>
+
+            <!-- GameHub Root fields -->
+            <VerticalStackLayout x:Name="RootPathSection" IsVisible="False" Spacing="10">
+                <Entry x:Name="ContainerIdEntry" Placeholder="Container ID" />
+                <Entry x:Name="SteamIdEntry" Placeholder="Steam ID" />
+            </VerticalStackLayout>
+
+            <!-- Custom path -->
+            <Entry x:Name="CustomPathEntry" Placeholder="Custom save path" IsVisible="False" />
+
+            <!-- Resolved path -->
+            <Label x:Name="ResolvedPathLabel" FontSize="12" TextColor="Gray" />
+
+            <Button Text="Save" Clicked="OnSaveClicked" BackgroundColor="#4CAF50" TextColor="White" />
+            <Label x:Name="StatusLabel" TextColor="Gray" HorizontalOptions="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

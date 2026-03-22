@@ -22,6 +22,14 @@ public interface ISteamAuthService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Login via QR code — scan with Steam mobile app.
+    /// onChallengeUrl is called with the URL to encode as QR.
+    /// </summary>
+    Task<AuthResult> LoginViaQRAsync(
+        Action<string> onChallengeUrl,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Clean disconnect from Steam.
     /// </summary>
     Task DisconnectAsync();
