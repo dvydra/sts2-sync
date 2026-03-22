@@ -67,6 +67,39 @@ public class LocalSaveStore : ILocalSaveStore
         return Task.FromResult<LocalFileInfo?>(BuildFileInfo(relativePath, fullPath));
     }
 
+    public Task<List<string>> ListFilesAsync(string directoryPrefix, string extension, CancellationToken ct = default)
+    {
+        if (!directoryPrefix.EndsWith('/'))
+            directoryPrefix += '/';
+
+        var fullDir = ResolvePath(directoryPrefix);
+        var results = new List<string>();
+
+        if (Directory.Exists(fullDir))
+        {
+            var normalizedBase = Path.GetFullPath(_basePath + Path.DirectorySeparatorChar);
+            foreach (var file in Directory.GetFiles(fullDir))
+            {
+                if (file.EndsWith(extension, StringComparison.Ordinal))
+                {
+                    var relative = Path.GetFullPath(file)[normalizedBase.Length..];
+                    results.Add(relative.Replace('\\', '/'));
+                }
+            }
+            results.Sort(StringComparer.Ordinal);
+        }
+
+        return Task.FromResult(results);
+    }
+
+    public Task DeleteFileAsync(string relativePath, CancellationToken ct = default)
+    {
+        var fullPath = ResolvePath(relativePath);
+        if (File.Exists(fullPath))
+            File.Delete(fullPath);
+        return Task.CompletedTask;
+    }
+
     private string ResolvePath(string relativePath)
     {
         var fullPath = Path.GetFullPath(Path.Combine(_basePath, relativePath));

@@ -9,4 +9,6 @@ public interface ILocalSaveStore
     Task<byte[]> ReadFileAsync(string relativePath, CancellationToken ct = default);
     Task WriteFileAsync(string relativePath, byte[] data, CancellationToken ct = default);
     Task<LocalFileInfo?> GetFileInfoAsync(string relativePath, CancellationToken ct = default);
+    Task<List<string>> ListFilesAsync(string directoryPrefix, string extension, CancellationToken ct = default);
+    Task DeleteFileAsync(string relativePath, CancellationToken ct = default);
 }
