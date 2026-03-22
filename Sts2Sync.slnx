@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Sts2Sync.App/Sts2Sync.App.csproj" />
+    <Project Path="src/Sts2Sync.Core/Sts2Sync.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Sts2Sync.Core.Tests/Sts2Sync.Core.Tests.csproj" />
+  </Folder>
+</Solution>

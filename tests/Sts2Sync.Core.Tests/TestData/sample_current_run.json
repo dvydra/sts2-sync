@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "ascension": 5,
+  "current_act_index": 1,
+  "run_time": 1523.7,
+  "acts": [
+    { "id": "ACT.ExordiaCrypt" },
+    { "id": "ACT.TheCity" }
+  ],
+  "map_point_history": [
+    [
+      { "row": 0, "col": 2 },
+      { "row": 1, "col": 3 },
+      { "row": 2, "col": 2 },
+      { "row": 3, "col": 1 },
+      { "row": 4, "col": 2 },
+      { "row": 5, "col": 3 },
+      { "row": 6, "col": 2 },
+      { "row": 7, "col": 1 },
+      { "row": 8, "col": 2 },
+      { "row": 9, "col": 3 },
+      { "row": 10, "col": 2 },
+      { "row": 11, "col": 1 },
+      { "row": 12, "col": 2 },
+      { "row": 13, "col": 3 },
+      { "row": 14, "col": 2 }
+    ],
+    [
+      { "row": 0, "col": 1 },
+      { "row": 1, "col": 2 },
+      { "row": 2, "col": 1 },
+      { "row": 3, "col": 2 },
+      { "row": 4, "col": 3 },
+      { "row": 5, "col": 2 },
+      { "row": 6, "col": 1 },
+      { "row": 7, "col": 2 }
+    ]
+  ],
+  "players": [
+    {
+      "character_id": "CHARACTER.IRONCLAD",
+      "current_hp": 52,
+      "max_hp": 80,
+      "gold": 234,
+      "max_energy": 3,
+      "max_potion_slot_count": 3,
+      "base_orb_slot_count": 0,
+      "deck": [
+        { "id": "CARD.Strike", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Strike", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Strike", "current_upgrade_level": 1, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Defend", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Defend", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Defend", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Bash", "current_upgrade_level": 0, "floor_added_to_deck": 0, "props": {} },
+        { "id": "CARD.Anger", "current_upgrade_level": 0, "floor_added_to_deck": 3, "props": {} },
+        { "id": "CARD.Clothesline", "current_upgrade_level": 1, "floor_added_to_deck": 7, "props": {} },
+        { "id": "CARD.HeavyBlade", "current_upgrade_level": 0, "floor_added_to_deck": 12, "props": {} },
+        { "id": "CARD.Flex", "current_upgrade_level": 0, "floor_added_to_deck": 16, "props": {} },
+        { "id": "CARD.ShrugItOff", "current_upgrade_level": 0, "floor_added_to_deck": 19, "props": {} }
+      ],
+      "relics": [
+        { "id": "RELIC.BurningBlood", "floor_added_to_deck": 0, "props": {} },
+        { "id": "RELIC.Anchor", "floor_added_to_deck": 8, "props": {} },
+        { "id": "RELIC.BagOfMarbles", "floor_added_to_deck": 15, "props": {} }
+      ],
+      "potions": [
+        { "id": "POTION.FirePotion", "slot_index": 0 },
+        { "id": "POTION.HealthPotion", "slot_index": 2 }
+      ]
+    }
+  ]
+}
