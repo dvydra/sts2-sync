@@ -21,4 +21,6 @@ public interface ISteamConnectionManager : IAsyncDisposable
     Task ConnectAsync(CancellationToken ct = default);
     Task LogOnWithRefreshTokenAsync(string username, string refreshToken, CancellationToken ct = default);
     Task DisconnectAsync();
+    void SuspendIdle();
+    void ResumeIdle();
 }
